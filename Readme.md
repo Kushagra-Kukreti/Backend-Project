@@ -1,0 +1,1 @@
+# this file contains all the details for the project
