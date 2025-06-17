@@ -24,60 +24,59 @@ const userSchema = new Schema({
     },
     avatar:{
         type:String, //cloudinary url
-        required:true
+        required:false
     },
     coverImage:{
         type:String //cloudinary url 
     },
-    watchHistory:{
-        type:Schema.Types.ObjectId,
-        ref:"Video"
+    posts:[{
+         type:Schema.Types.ObjectId,
+        ref:"Post"
     },
+    ],
     password:{
         type:String,
         required:[true,"Password is required"]
     },
     refreshToken:{
         type:String
-    }
+    },
+    isDeleted:{
+        type:Boolean,
+        default:false
+    },
+    followers:[{
+        type:Schema.Types.ObjectId,
+        ref:"User"
+    }],
+    following:[{
+        type:Schema.Types.ObjectId,
+        ref:"User"
+    }]
      
 
 },{timestamps:true})
 
-//bcrypt used for hashing the passwords -- means only hash when password field changed
-//async because hashing takes time 
-userSchema.pre("save", async function (next){
+userSchema.pre("save",async function(next){
     if(!this.isModified("password")) return next()
     this.password = await bcrypt.hash(this.password,10)
     next()
 })
-
-userSchema.methods.isPasswordCorrect = async function (password){
-   return await bcrypt.compare(password,this.password)
+userSchema.methods.isPasswordCorrect = async function(password){
+    console.log("this.password",this.password);
+    
+  return bcrypt.compare(password,this.password)
+}
+userSchema.methods.generateAccessToken = async function(){
+     return jwt.sign({
+        _id:this.id,
+        email:this.email
+        
+     },process.env.ACCESS_TOKEN_SECRET)
+}
+userSchema.methods.generateRefreshToken = async function(){
+     return jwt.sign({ _id:this.id},process.env.REFRESH_TOKEN_SECRET)
 }
 
-
-//no nned for async here doesnt take much time 
-userSchema.methods.generateAccessToken = function (){
-       return jwt.sign(
-        {  
-            _id : this._id,
-            email:this.email,     //data
-            fullName:this.fullName,
-            username:this.username
-        },
-        process.env.ACCESS_TOKEN_SECRET, //access token secret
-                                  
-    )
-}
-userSchema.methods.generateRefreshToken = function (){
-    return jwt.sign(
-     {  
-         _id : this._id //data
-     },
-     process.env.REFRESH_TOKEN_SECRET, //access token secret
-                               
- )
-}
-
-export const User = mongoose.model('User',userSchema);
+export const User = mongoose.model("User",userSchema)
+ 
