@@ -1,13 +1,13 @@
 import { Router } from "express";
-import { verifyJWT } from "../middlewares/auth.middleware";
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 import {
   addCommentToPost,
   deleteCommentFromPost,
   likeComment,
   unlikeComment,
-} from "../controllers/post.controller";
+} from "../controllers/post.controller.js";
 
-const commentRouter = Router();
+export const commentRouter = Router();
 //comments
 commentRouter
   .patch("/:postId/comment/:commentId/like", verifyJWT, likeComment)

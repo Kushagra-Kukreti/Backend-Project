@@ -70,7 +70,7 @@ const editPost = asyncHandler(async (req, _) => {
 });
 const getPost = asyncHandler(async (req, res) => {
   const { postId } = req.params;
-  const post = await Post.findById(postId);
+  const post = await Post.findById(postId).populate("comments");
   if (!post) {
     throw new ApiError(404, "Requested post does not exist.");
   }
@@ -121,7 +121,7 @@ const likePost = asyncHandler(async (req, res) => {
   if(!userWhoLikedThePost){
     throw new ApiError(400,"Invalid request user does not exist.")
   }
-  const {postId} = req.body;
+  const {postId} = req.params;
   if(!postId){
     throw new ApiError(400,"Post id is required");
   }
@@ -129,16 +129,19 @@ const likePost = asyncHandler(async (req, res) => {
   if(!postInfo){
     throw new ApiError(404,"Post does not exist.");
   }
+  if(postInfo.likes.includes(userWhoLikedThePost._id)){
+    throw new ApiError(400,"You have already liked the post.")
+  }
   postInfo.likes.push(userWhoLikedThePost._id);
   await postInfo.save({validateBeforeSave:false});
-  return res.status(200).json(new ApiResponse(200,{},"post successfully liked."))
+  return res.status(200).json(new ApiResponse(200,postInfo,"post successfully liked."))
 });
 const unlikePost = asyncHandler(async (req, res) => {
   const userWhoUnlikedThePost = await User.findById(req.user._id);
   if(!userWhoUnlikedThePost){
     throw new ApiError(400,"Invalid request user does not exist.")
   }
-  const {postId} = req.body;
+  const {postId} = req.params;
   if(!postId){
     throw new ApiError(400,"Post id is required");
   }
@@ -146,26 +149,37 @@ const unlikePost = asyncHandler(async (req, res) => {
   if(!postInfo){
     throw new ApiError(404,"Post does not exist.");
   }
-  postInfo.likes.filter((currUser)=>currUser._id!== userWhoUnlikedThePost._id);
+  console.log("post info is",postInfo);
+  console.log("user id",userWhoUnlikedThePost._id);
+  
+  
+  if(!postInfo.likes.includes(userWhoUnlikedThePost._id)){
+    throw new ApiError(400,"You have not liked the post yet.")
+  }
+   postInfo.likes = postInfo.likes.filter((currUser)=>currUser !== userWhoUnlikedThePost._id.toString());
   await postInfo.save({validateBeforeSave:false});
-  return res.status(200).json(new ApiResponse(200,{},"Post successfully unliked."))
+  return res.status(200).json(new ApiResponse(200,postInfo,"Post successfully unliked."))
 });
 const likeComment = asyncHandler(async (req, res) => {
   const userWholikedTheComment = await User.findById(req.user._id);
   if(!userWholikedTheComment){
     throw new ApiError(400,"Invalid request user does not exist.")
   }
-  const {commentId} = req.body;
+  const {commentId} = req.params;
+  console.log("comment id is:",commentId);
+  
   if(!commentId){
     throw new ApiError(400,"Comment id is required.");
   }
   const commentInfo  = await Comment.findById(commentId);
+  console.log("commentInfo",commentInfo);
+  
   if(!commentInfo){
     throw new ApiError(404,"Comment does not exist.");
   }
   commentInfo.likes.push(userWholikedTheComment._id);
-  await commentInfo.save({validateBeforeSave:false});
-  return res.status(200).json(new ApiResponse(200,{},"Comment liked successfully."))
+  await commentInfo.save({validateBeforeSave:false},{new:true});
+  return res.status(200).json(new ApiResponse(200,commentInfo,"Comment liked successfully."))
 });
 const unlikeComment = asyncHandler(async (req, res) => {
   const userWhoUnlikedTheComment = await User.findById(req.user._id);
@@ -180,7 +194,7 @@ const unlikeComment = asyncHandler(async (req, res) => {
   if(!commentInfo){
     throw new ApiError(404,"Comment does not exist.");
   }
-  commentInfo.likes.filter((currUser)=>currUser._id!== userWhoUnlikedTheComment._id);
+  commentInfo.likes = commentInfo.likes.filter((currUser)=>currUser._id!== userWhoUnlikedTheComment._id);
   await commentInfo.save({validateBeforeSave:false});
   return res.status(200).json(new ApiResponse(200,{},"Comment unliked successfully."))
 });
@@ -189,19 +203,21 @@ const addCommentToPost = asyncHandler(async (req, res) => {
   if(!userCommenting){
     throw new ApiError(400,"Unauthorized request.");
   }
-  const {comment,postId} = req.body;
+  const {comment} = req.body;
+  const {postId} = req.params;
+  
   if(!comment || !postId){
     throw new ApiError(400,"Please make sure you are making a valid request.");
   }
-  const commentedPost = await Post.findById(postId);
+  const commentedPost = await Post.findById(postId).populate("comments");
   if(!commentedPost){
     throw new ApiError(404,"Post does not exist");
   }
-  const newComment = {
-    user:userCommenting,
+  const newComment = await Comment.create({
+    user:userCommenting._id,
     text:comment,
     likes:[]
-  }
+  })
   commentedPost.comments.push(newComment);
   await commentedPost.save({validateBeforeSave:false});
   return res.status(201).json(new ApiResponse(201,commentedPost,"Comment added successfully."));

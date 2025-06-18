@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const commentSchema = new Schema(
+export const commentSchema = new Schema(
   {
     user: {
       type: Schema.Types.ObjectId,
